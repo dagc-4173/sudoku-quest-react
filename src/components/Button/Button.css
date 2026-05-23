@@ -1,0 +1,64 @@
+.app-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.app-button:active {
+  transform: translateY(1px);
+}
+
+.app-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.54;
+}
+
+.app-button__icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-button--primary {
+  color: var(--color-ink);
+  background: var(--color-green-light);
+  border-color: var(--color-green-light);
+}
+
+.app-button--primary:hover:not(:disabled) {
+  background: var(--color-green-soft);
+  border-color: var(--color-green-soft);
+}
+
+.app-button--secondary {
+  color: var(--color-text);
+  background: rgba(0, 101, 46, 0.2);
+  border-color: rgba(146, 189, 36, 0.42);
+}
+
+.app-button--secondary:hover:not(:disabled) {
+  background: rgba(0, 101, 46, 0.32);
+}
+
+.app-button--ghost {
+  color: var(--color-text);
+  background: transparent;
+  border-color: var(--color-line);
+}
+
+.app-button--ghost:hover:not(:disabled) {
+  border-color: rgba(146, 189, 36, 0.42);
+  background: rgba(146, 189, 36, 0.08);
+}

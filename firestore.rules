@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /scores/{scoreId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'createdAt',
+          'difficulty',
+          'errors',
+          'hints',
+          'playerName',
+          'score',
+          'time',
+          'timeSeconds',
+          'userId'
+        ])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.playerName is string
+        && request.resource.data.difficulty in ['Fácil', 'Medio', 'Difícil']
+        && request.resource.data.time is string
+        && request.resource.data.errors is int
+        && request.resource.data.hints is int
+        && request.resource.data.score is int
+        && request.resource.data.timeSeconds is int
+        && request.resource.data.errors >= 0
+        && request.resource.data.hints >= 0
+        && request.resource.data.score >= 0
+        && request.resource.data.timeSeconds >= 0
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+  }
+}

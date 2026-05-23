@@ -1,0 +1,40 @@
+:root {
+  color-scheme: dark;
+  color: var(--color-text);
+  background: var(--color-background);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+  background-color: var(--color-background);
+  background-image:
+    linear-gradient(rgba(146, 189, 36, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(146, 189, 36, 0.06) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(0, 101, 46, 0.18), rgba(0, 19, 32, 0) 42%),
+    linear-gradient(315deg, rgba(88, 22, 125, 0.12), rgba(0, 19, 32, 0) 38%);
+  background-size:
+    44px 44px,
+    44px 44px,
+    100% 100%,
+    100% 100%;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 19, 32, 0.28), rgba(0, 19, 32, 0.82));
+}
+
+::selection {
+  color: var(--color-ink);
+  background: var(--color-green-light);
+}
