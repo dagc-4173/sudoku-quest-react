@@ -31,3 +31,10 @@ export interface GeneratedPuzzle {
   puzzle: FlatSudokuBoard
   solution: FlatSudokuBoard
 }
+
+export interface SudokuValidationResult {
+  errorCount: number
+  isComplete: boolean
+  isSolved: boolean
+  wrongCells: boolean[]
+}

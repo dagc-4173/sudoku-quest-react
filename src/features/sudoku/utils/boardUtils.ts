@@ -1,4 +1,4 @@
-import type { FlatSudokuBoard } from '../types/sudoku.types'
+import type { FlatSudokuBoard, SudokuBoard } from '../types/sudoku.types'
 
 export const BOARD_SIZE = 6
 export const BOX_ROWS = 2
@@ -30,6 +30,27 @@ export function getBlockStart(row: number, column: number) {
 
 export function getFixedCells(puzzle: FlatSudokuBoard) {
   return puzzle.map((value) => value !== 0)
+}
+
+export function createSudokuBoard(values: FlatSudokuBoard, fixedCells = getFixedCells(values)) {
+  return Array.from({ length: BOARD_SIZE }, (_, row) =>
+    Array.from({ length: BOARD_SIZE }, (_, column) => {
+      const index = getCellIndex(row, column)
+      const value = values[index]
+
+      return {
+        col: column,
+        error: false,
+        fixed: fixedCells[index],
+        row,
+        value: value === 0 ? null : value,
+      }
+    }),
+  )
+}
+
+export function flattenBoardValues(board: SudokuBoard): FlatSudokuBoard {
+  return board.flatMap((row) => row.map((cell) => cell.value ?? 0))
 }
 
 export function getWrongCells(cells: FlatSudokuBoard, solution: FlatSudokuBoard) {

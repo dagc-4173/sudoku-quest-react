@@ -1,4 +1,4 @@
-import type { FlatSudokuBoard } from '../types/sudoku.types'
+import type { FlatSudokuBoard, SudokuValidationResult } from '../types/sudoku.types'
 import {
   BOARD_SIZE,
   BOX_COLUMNS,
@@ -45,7 +45,7 @@ export function isValidFilledBoard(board: FlatSudokuBoard) {
 export function validateBoardAgainstSolution(
   cells: FlatSudokuBoard,
   solution: FlatSudokuBoard,
-) {
+): SudokuValidationResult {
   const wrongCells = cells.map((value, index) => value !== 0 && value !== solution[index])
   const errorCount = wrongCells.filter(Boolean).length
   const isComplete = cells.every((value) => value !== 0)
