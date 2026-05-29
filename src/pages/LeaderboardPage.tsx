@@ -1,46 +1,76 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
+import LeaderboardTable from '../features/leaderboard/components/LeaderboardTable'
+import {
+  subscribeToLeaderboard,
+} from '../features/leaderboard/services/leaderboardService'
+import type { LeaderboardEntry } from '../features/leaderboard/services/leaderboardService'
+import type { Difficulty } from '../features/sudoku/types/sudoku.types'
+import { DIFFICULTY_ORDER, getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
 import { isFirebaseConfigured } from '../lib/firebase'
-import { getLeaderboard } from '../services/scores'
-import type { LeaderboardEntry } from '../services/scores'
 
 function LeaderboardPage() {
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy')
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(isFirebaseConfigured)
 
   useEffect(() => {
+    let unsubscribe = () => {}
     let isMounted = true
 
-    async function loadLeaderboard() {
+    async function subscribeLeaderboard() {
       if (!isFirebaseConfigured) {
-        setIsLoading(false)
         return
       }
 
       try {
-        const nextEntries = await getLeaderboard()
-        if (isMounted) {
-          setEntries(nextEntries)
-        }
+        unsubscribe = await subscribeToLeaderboard(
+          difficulty,
+          (nextEntries) => {
+            if (!isMounted) {
+              return
+            }
+
+            setEntries(nextEntries)
+            setIsLoading(false)
+          },
+          () => {
+            if (!isMounted) {
+              return
+            }
+
+            setErrorMessage(
+              'No se pudo cargar el ranking. Revisa permisos o índices de Firestore.',
+            )
+            setIsLoading(false)
+          },
+        )
       } catch {
         if (isMounted) {
-          setErrorMessage('No se pudo cargar el ranking. Revisa permisos de Firestore.')
-        }
-      } finally {
-        if (isMounted) {
+          setErrorMessage('No se pudo iniciar el ranking en tiempo real.')
           setIsLoading(false)
         }
       }
     }
 
-    loadLeaderboard()
+    subscribeLeaderboard()
 
     return () => {
       isMounted = false
+      unsubscribe()
     }
-  }, [])
+  }, [difficulty])
+
+  function handleDifficultyChange(nextDifficulty: Difficulty) {
+    if (nextDifficulty === difficulty) {
+      return
+    }
+
+    setDifficulty(nextDifficulty)
+    setEntries([])
+    setErrorMessage('')
+    setIsLoading(isFirebaseConfigured)
+  }
 
   return (
     <section className="page module-page">
@@ -48,8 +78,25 @@ function LeaderboardPage() {
         <p className="page__eyebrow">Ranking</p>
         <h1>Tabla de liderazgo</h1>
         <p className="page__lead">
-          Mejores partidas guardadas en Firestore, ordenadas por puntaje.
+          Mejores partidas en tiempo real, separadas por dificultad y ordenadas por menor puntaje.
         </p>
+      </div>
+
+      <div className="difficulty-tabs leaderboard-filter" aria-label="Filtrar ranking por dificultad">
+        {DIFFICULTY_ORDER.map((level) => (
+          <button
+            className={
+              level === difficulty
+                ? 'difficulty-tabs__button difficulty-tabs__button--active'
+                : 'difficulty-tabs__button'
+            }
+            key={level}
+            onClick={() => handleDifficultyChange(level)}
+            type="button"
+          >
+            {getDifficultyLabel(level)}
+          </button>
+        ))}
       </div>
 
       {!isFirebaseConfigured ? (
@@ -61,44 +108,7 @@ function LeaderboardPage() {
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
 
-      <div className="table-shell" role="region" aria-label="Ranking de Sudoku">
-        <table>
-          <thead>
-            <tr>
-              <th>Jugador</th>
-              <th>Dificultad</th>
-              <th>Tiempo</th>
-              <th>Errores</th>
-              <th>Pistas</th>
-              <th>Puntaje</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={6}>Cargando ranking...</td>
-              </tr>
-            ) : entries.length ? (
-              entries.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{entry.playerName}</td>
-                  <td>{getDifficultyLabel(entry.difficulty)}</td>
-                  <td>{entry.time}</td>
-                  <td>{entry.mistakes}</td>
-                  <td>{entry.hintsUsed}</td>
-                  <td>{entry.finalScore}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6}>
-                  Aún no hay partidas registradas. <Link to="/game">Juega la primera.</Link>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <LeaderboardTable entries={entries} isLoading={isLoading} />
     </section>
   )
 }
