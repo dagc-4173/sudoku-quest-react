@@ -10,7 +10,7 @@ import SudokuBoard from '../features/sudoku/components/SudokuBoard'
 import SudokuStats from '../features/sudoku/components/SudokuStats'
 import ValidateButton from '../features/sudoku/components/ValidateButton'
 import { useSudoku } from '../features/sudoku/hooks/useSudoku'
-import { calculateGameScore } from '../features/sudoku/services/sudokuScoreService'
+import { calculateSudokuScore } from '../features/sudoku/services/sudokuScoreService'
 import { getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
 import { saveGameResult } from '../features/leaderboard/services/leaderboardService'
 import { getFirestoreSaveErrorMessage } from '../lib/firebaseFirestoreErrors'
@@ -30,7 +30,7 @@ function GamePage() {
     validateBoard,
   } = useSudoku()
   const [isSaving, setIsSaving] = useState(false)
-  const finalScore = calculateGameScore(elapsedTime, mistakes, hintsUsed)
+  const finalScore = calculateSudokuScore(difficulty, elapsedTime, mistakes, hintsUsed)
 
   async function handleValidateGame() {
     const validation = validateBoard()

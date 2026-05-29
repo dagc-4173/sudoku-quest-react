@@ -58,12 +58,12 @@ function mapLeaderboardEntry(id: string, data: Record<string, unknown>): Leaderb
 function sortLeaderboardEntries(entries: LeaderboardEntry[]) {
   return entries
     .sort((currentEntry, nextEntry) => {
-      if (currentEntry.finalScore !== nextEntry.finalScore) {
-        return currentEntry.finalScore - nextEntry.finalScore
-      }
-
       if (currentEntry.timeInSeconds !== nextEntry.timeInSeconds) {
         return currentEntry.timeInSeconds - nextEntry.timeInSeconds
+      }
+
+      if (currentEntry.finalScore !== nextEntry.finalScore) {
+        return nextEntry.finalScore - currentEntry.finalScore
       }
 
       if (currentEntry.mistakes !== nextEntry.mistakes) {

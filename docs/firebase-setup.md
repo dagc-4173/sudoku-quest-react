@@ -68,8 +68,9 @@ El ranking realtime consulta por dificultad:
 where('difficulty', '==', difficulty)
 ```
 
-La app ordena los resultados por menor puntaje en el cliente para evitar
-depender de un indice compuesto durante la entrega academica.
+La app ordena los resultados por menor tiempo en el cliente y muestra el
+puntaje calculado como metrica de rendimiento. Esto evita depender de un indice
+compuesto durante la entrega academica.
 
 ## 6. Prueba manual
 

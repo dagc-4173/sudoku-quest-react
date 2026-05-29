@@ -78,7 +78,7 @@ function LeaderboardPage() {
         <p className="page__eyebrow">Ranking</p>
         <h1>Tabla de liderazgo</h1>
         <p className="page__lead">
-          Mejores partidas en tiempo real, separadas por dificultad y ordenadas por menor puntaje.
+          Mejores partidas en tiempo real, separadas por dificultad y ordenadas por menor tiempo.
         </p>
       </div>
 

@@ -49,11 +49,34 @@ Entrega objetivo: 20 de mayo
 
 ## Puntaje
 
-El ranking usa menor puntaje como mejor resultado:
+El tiempo se mantiene como campo independiente para ordenar el ranking por
+menor duracion. La columna de puntaje usa mayor puntaje como mejor resultado.
 
 ```ts
-finalScore = timeInSeconds + mistakes * 10 + hintsUsed * 30
+finalScore =
+  baseScore -
+  Math.floor(timeInSeconds / 60) * 50 -
+  mistakes * 100 -
+  hintsUsed * 250 +
+  noMistakeBonus +
+  noHintBonus +
+  speedBonus
 ```
+
+Base por dificultad: Facil 1000, Medio 2000, Dificil 3000.
+
+Penalizaciones:
+
+- Cada minuto completo resta 50 puntos.
+- Cada error resta 100 puntos.
+- Cada pista resta 250 puntos.
+
+Bonificaciones:
+
+- Sin errores: 300 puntos.
+- Sin pistas: 300 puntos.
+- Rapidez no acumulable: 600 puntos hasta 30 segundos, 500 hasta 60,
+  400 hasta 90, 300 hasta 120, 200 hasta 150 y 100 hasta 180.
 
 ## Estructura principal
 
