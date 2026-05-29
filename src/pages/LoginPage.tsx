@@ -1,15 +1,27 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+
+interface AuthLocationState {
+  from?: {
+    pathname?: string
+  }
+}
 
 function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { currentUser, isConfigured, login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const redirectTo = ((location.state as AuthLocationState | null)?.from?.pathname) || '/game'
+
+  if (currentUser) {
+    return <Navigate replace to={redirectTo} />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -18,7 +30,7 @@ function LoginPage() {
 
     try {
       await login(email, password)
-      navigate('/game')
+      navigate(redirectTo, { replace: true })
     } catch {
       setErrorMessage('No se pudo iniciar sesión. Revisa el correo y la contraseña.')
     } finally {
@@ -31,11 +43,7 @@ function LoginPage() {
       <div className="page__header">
         <p className="page__eyebrow">Cuenta</p>
         <h1>Ingresar</h1>
-        {currentUser ? (
-          <p className="page__lead">Ya tienes una sesión activa.</p>
-        ) : (
-          <p className="page__lead">Inicia sesión para guardar tus partidas en el ranking.</p>
-        )}
+        <p className="page__lead">Inicia sesión para guardar tus partidas en el ranking.</p>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>

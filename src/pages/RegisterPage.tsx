@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
 
 function RegisterPage() {
   const navigate = useNavigate()
-  const { isConfigured, register } = useAuth()
+  const { currentUser, isConfigured, register } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  if (currentUser) {
+    return <Navigate replace to="/game" />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -19,7 +23,7 @@ function RegisterPage() {
 
     try {
       await register(name.trim(), email, password)
-      navigate('/game')
+      navigate('/game', { replace: true })
     } catch {
       setErrorMessage('No se pudo crear la cuenta. Usa otro correo o una contraseña más fuerte.')
     } finally {

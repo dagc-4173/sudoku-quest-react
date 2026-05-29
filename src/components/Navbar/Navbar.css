@@ -79,6 +79,11 @@
   cursor: pointer;
 }
 
+.navbar__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .navbar__user {
   max-width: 190px;
   overflow: hidden;

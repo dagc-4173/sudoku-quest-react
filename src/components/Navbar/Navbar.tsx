@@ -1,5 +1,6 @@
 import { Gamepad2, Grid3x3, LogIn, LogOut, Trophy, UserPlus } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
 import './Navbar.css'
 
@@ -15,7 +16,20 @@ const authLinks = [
 ]
 
 function Navbar() {
+  const navigate = useNavigate()
   const { currentUser, logout } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    setIsLoggingOut(true)
+
+    try {
+      await logout()
+      navigate('/login', { replace: true })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <header className="navbar">
@@ -43,9 +57,14 @@ function Navbar() {
         {currentUser ? (
           <>
             <span className="navbar__user">{currentUser.displayName || currentUser.email}</span>
-            <button className="navbar__link navbar__button" onClick={logout} type="button">
+            <button
+              className="navbar__link navbar__button"
+              disabled={isLoggingOut}
+              onClick={handleLogout}
+              type="button"
+            >
               <LogOut size={18} strokeWidth={1.8} aria-hidden="true" />
-              <span>Salir</span>
+              <span>{isLoggingOut ? 'Saliendo...' : 'Salir'}</span>
             </button>
           </>
         ) : (
