@@ -3,189 +3,31 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button/Button'
 import { useAuth } from '../contexts/useAuth'
+import { calculateGameScore } from '../features/sudoku/services/sudokuScoreService'
+import type { Difficulty, FlatSudokuBoard } from '../features/sudoku/types/sudoku.types'
+import {
+  findHintTarget,
+  getCellCoordinates,
+  getFixedCells,
+  isBoardComplete,
+  setFlatCellValue,
+  SUDOKU_NUMBERS,
+} from '../features/sudoku/utils/boardUtils'
+import { generatePuzzle } from '../features/sudoku/utils/boardGenerator'
+import {
+  DIFFICULTY_ORDER,
+  getDifficultyLabel,
+} from '../features/sudoku/utils/difficultyConfig'
+import { formatTime } from '../features/sudoku/utils/formatTime'
+import { validateBoardAgainstSolution } from '../features/sudoku/utils/sudokuValidator'
 import { saveGameResult } from '../services/scores'
-
-type Difficulty = 'facil' | 'medio' | 'dificil'
-
-interface PuzzleConfig {
-  label: string
-  holes: number
-}
-
-interface GeneratedPuzzle {
-  puzzle: number[]
-  solution: number[]
-}
-
-const puzzles: Record<Difficulty, PuzzleConfig> = {
-  facil: {
-    label: 'Fácil',
-    holes: 12,
-  },
-  medio: {
-    label: 'Medio',
-    holes: 18,
-  },
-  dificil: {
-    label: 'Difícil',
-    holes: 22,
-  },
-}
-
-const numbers = [1, 2, 3, 4, 5, 6]
-const boardSize = 6
-const boxRows = 2
-const boxColumns = 3
-
-function shuffle<T>(items: T[]) {
-  const nextItems = [...items]
-
-  for (let index = nextItems.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1))
-    ;[nextItems[index], nextItems[swapIndex]] = [nextItems[swapIndex], nextItems[index]]
-  }
-
-  return nextItems
-}
-
-function pattern(row: number, column: number) {
-  return (boxColumns * (row % boxRows) + Math.floor(row / boxRows) + column) % boardSize
-}
-
-function shuffledBands() {
-  return shuffle([0, 1, 2]).flatMap((band) =>
-    shuffle([0, 1]).map((row) => band * boxRows + row),
-  )
-}
-
-function shuffledStacks() {
-  return shuffle([0, 1]).flatMap((stack) =>
-    shuffle([0, 1, 2]).map((column) => stack * boxColumns + column),
-  )
-}
-
-function generateSolution() {
-  const rows = shuffledBands()
-  const columns = shuffledStacks()
-  const values = shuffle(numbers)
-
-  return rows.flatMap((row) => columns.map((column) => values[pattern(row, column)]))
-}
-
-function canPlace(board: number[], index: number, value: number) {
-  const row = Math.floor(index / boardSize)
-  const column = index % boardSize
-  const boxStartRow = Math.floor(row / boxRows) * boxRows
-  const boxStartColumn = Math.floor(column / boxColumns) * boxColumns
-
-  for (let offset = 0; offset < boardSize; offset += 1) {
-    if (board[row * boardSize + offset] === value) {
-      return false
-    }
-
-    if (board[offset * boardSize + column] === value) {
-      return false
-    }
-  }
-
-  for (let rowOffset = 0; rowOffset < boxRows; rowOffset += 1) {
-    for (let columnOffset = 0; columnOffset < boxColumns; columnOffset += 1) {
-      const boxIndex = (boxStartRow + rowOffset) * boardSize + boxStartColumn + columnOffset
-
-      if (board[boxIndex] === value) {
-        return false
-      }
-    }
-  }
-
-  return true
-}
-
-function getCandidates(board: number[], index: number) {
-  return numbers.filter((value) => canPlace(board, index, value))
-}
-
-function countSolutions(board: number[], limit = 2) {
-  const nextEmptyCell = board.reduce(
-    (best, value, index) => {
-      if (value !== 0) {
-        return best
-      }
-
-      const candidates = getCandidates(board, index)
-
-      if (!best || candidates.length < best.candidates.length) {
-        return { candidates, index }
-      }
-
-      return best
-    },
-    null as null | { candidates: number[]; index: number },
-  )
-
-  if (!nextEmptyCell) {
-    return 1
-  }
-
-  if (nextEmptyCell.candidates.length === 0) {
-    return 0
-  }
-
-  let solutions = 0
-
-  for (const candidate of nextEmptyCell.candidates) {
-    board[nextEmptyCell.index] = candidate
-    solutions += countSolutions(board, limit)
-    board[nextEmptyCell.index] = 0
-
-    if (solutions >= limit) {
-      return solutions
-    }
-  }
-
-  return solutions
-}
-
-function generatePuzzle(difficulty: Difficulty): GeneratedPuzzle {
-  const solution = generateSolution()
-  const puzzle = [...solution]
-  const positions = shuffle([...Array(boardSize * boardSize).keys()])
-  let removedCells = 0
-
-  for (const position of positions) {
-    if (removedCells >= puzzles[difficulty].holes) {
-      break
-    }
-
-    const previousValue = puzzle[position]
-    puzzle[position] = 0
-
-    if (countSolutions([...puzzle]) === 1) {
-      removedCells += 1
-    } else {
-      puzzle[position] = previousValue
-    }
-  }
-
-  return { puzzle, solution }
-}
-
-function formatTime(seconds: number) {
-  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0')
-  const rest = (seconds % 60).toString().padStart(2, '0')
-  return `${minutes}:${rest}`
-}
-
-function getScore(seconds: number, errors: number, hints: number) {
-  return Math.max(0, 1200 - seconds * 3 - errors * 80 - hints * 120)
-}
 
 function GamePage() {
   const navigate = useNavigate()
   const { currentUser, isConfigured } = useAuth()
-  const [difficulty, setDifficulty] = useState<Difficulty>('facil')
-  const [generatedPuzzle, setGeneratedPuzzle] = useState(() => generatePuzzle('facil'))
-  const [cells, setCells] = useState<number[]>(generatedPuzzle.puzzle)
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy')
+  const [generatedPuzzle, setGeneratedPuzzle] = useState(() => generatePuzzle('easy'))
+  const [cells, setCells] = useState<FlatSudokuBoard>(generatedPuzzle.puzzle)
   const [selectedCell, setSelectedCell] = useState<number | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [hintsUsed, setHintsUsed] = useState(0)
@@ -194,18 +36,16 @@ function GamePage() {
   const [statusMessage, setStatusMessage] = useState('Completa el tablero para validar la partida.')
 
   const fixedCells = useMemo(
-    () => generatedPuzzle.puzzle.map((value) => value !== 0),
-    [generatedPuzzle],
+    () => getFixedCells(generatedPuzzle.puzzle),
+    [generatedPuzzle.puzzle],
   )
 
-  const wrongCells = useMemo(
-    () => cells.map((value, index) => value !== 0 && value !== generatedPuzzle.solution[index]),
-    [cells, generatedPuzzle],
+  const validation = useMemo(
+    () => validateBoardAgainstSolution(cells, generatedPuzzle.solution),
+    [cells, generatedPuzzle.solution],
   )
 
-  const errorCount = wrongCells.filter(Boolean).length
-  const isComplete = cells.every(Boolean)
-  const score = getScore(elapsedSeconds, errorCount, hintsUsed)
+  const score = calculateGameScore(elapsedSeconds, validation.errorCount, hintsUsed)
 
   useEffect(() => {
     const timerId = window.setInterval(() => {
@@ -233,9 +73,7 @@ function GamePage() {
       return
     }
 
-    setCells((currentCells) =>
-      currentCells.map((cellValue, index) => (index === selectedCell ? value : cellValue)),
-    )
+    setCells((currentCells) => setFlatCellValue(currentCells, selectedCell, value))
     setValidationAttempted(false)
   }
 
@@ -244,27 +82,25 @@ function GamePage() {
       return
     }
 
-    setCells((currentCells) =>
-      currentCells.map((cellValue, index) => (index === selectedCell ? 0 : cellValue)),
-    )
+    setCells((currentCells) => setFlatCellValue(currentCells, selectedCell, 0))
     setValidationAttempted(false)
   }
 
   function revealHint() {
-    const targetIndex =
-      selectedCell !== null && !fixedCells[selectedCell] && cells[selectedCell] === 0
-        ? selectedCell
-        : cells.findIndex((value, index) => value === 0 && !fixedCells[index])
+    const targetIndex = findHintTarget(
+      cells,
+      fixedCells,
+      generatedPuzzle.solution,
+      selectedCell,
+    )
 
     if (targetIndex === -1) {
-      setStatusMessage('No quedan casillas vacías para revelar.')
+      setStatusMessage('No quedan casillas vacías o incorrectas para revelar.')
       return
     }
 
     setCells((currentCells) =>
-      currentCells.map((value, index) =>
-        index === targetIndex ? generatedPuzzle.solution[index] : value,
-      ),
+      setFlatCellValue(currentCells, targetIndex, generatedPuzzle.solution[targetIndex]),
     )
     setSelectedCell(targetIndex)
     setHintsUsed((currentHints) => currentHints + 1)
@@ -275,19 +111,19 @@ function GamePage() {
   async function validateGame() {
     setValidationAttempted(true)
 
-    if (!isComplete) {
+    if (!isBoardComplete(cells)) {
       setStatusMessage('Aún faltan casillas por completar.')
       return
     }
 
-    if (errorCount > 0) {
+    if (!validation.isSolved) {
       setStatusMessage('Hay casillas por corregir antes de cerrar la partida.')
       return
     }
 
     const result = {
-      difficulty: puzzles[difficulty].label,
-      errors: errorCount,
+      difficulty: getDifficultyLabel(difficulty),
+      errors: validation.errorCount,
       hints: hintsUsed,
       score,
       time: formatTime(elapsedSeconds),
@@ -321,7 +157,7 @@ function GamePage() {
             Tiempo <strong>{formatTime(elapsedSeconds)}</strong>
           </span>
           <span>
-            Errores <strong>{errorCount}</strong>
+            Errores <strong>{validation.errorCount}</strong>
           </span>
           <span>
             Pistas <strong>{hintsUsed}</strong>
@@ -334,7 +170,8 @@ function GamePage() {
           {cells.map((value, index) => {
             const isFixed = fixedCells[index]
             const isSelected = selectedCell === index
-            const isWrong = validationAttempted && wrongCells[index]
+            const isWrong = validationAttempted && validation.wrongCells[index]
+            const { column, row } = getCellCoordinates(index)
             const className = [
               'sudoku-cell',
               isFixed ? 'sudoku-cell--fixed' : '',
@@ -346,7 +183,7 @@ function GamePage() {
 
             return (
               <button
-                aria-label={`Fila ${Math.floor(index / 6) + 1}, columna ${(index % 6) + 1}`}
+                aria-label={`Fila ${row + 1}, columna ${column + 1}`}
                 className={className}
                 disabled={isFixed}
                 key={index}
@@ -362,11 +199,11 @@ function GamePage() {
         <aside className="module-panel game-controls">
           <div className="module-panel__header">
             <span>Dificultad</span>
-            <strong>{puzzles[difficulty].label}</strong>
+            <strong>{getDifficultyLabel(difficulty)}</strong>
           </div>
 
           <div className="difficulty-tabs" aria-label="Seleccionar dificultad">
-            {(Object.keys(puzzles) as Difficulty[]).map((level) => (
+            {DIFFICULTY_ORDER.map((level) => (
               <button
                 className={
                   level === difficulty
@@ -377,13 +214,13 @@ function GamePage() {
                 onClick={() => resetGame(level)}
                 type="button"
               >
-                {puzzles[level].label}
+                {getDifficultyLabel(level)}
               </button>
             ))}
           </div>
 
           <div className="number-pad" aria-label="Ingresar número">
-            {numbers.map((number) => (
+            {SUDOKU_NUMBERS.map((number) => (
               <button key={number} onClick={() => updateCell(number)} type="button">
                 {number}
               </button>
