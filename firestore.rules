@@ -8,26 +8,24 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'createdAt',
           'difficulty',
-          'errors',
-          'hints',
+          'finalScore',
+          'hintsUsed',
+          'mistakes',
           'playerName',
-          'score',
-          'time',
-          'timeSeconds',
-          'userId'
+          'timeInSeconds',
+          'uid'
         ])
-        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
         && request.resource.data.playerName is string
-        && request.resource.data.difficulty in ['Fácil', 'Medio', 'Difícil']
-        && request.resource.data.time is string
-        && request.resource.data.errors is int
-        && request.resource.data.hints is int
-        && request.resource.data.score is int
-        && request.resource.data.timeSeconds is int
-        && request.resource.data.errors >= 0
-        && request.resource.data.hints >= 0
-        && request.resource.data.score >= 0
-        && request.resource.data.timeSeconds >= 0
+        && request.resource.data.difficulty in ['easy', 'medium', 'hard']
+        && request.resource.data.finalScore is int
+        && request.resource.data.hintsUsed is int
+        && request.resource.data.mistakes is int
+        && request.resource.data.timeInSeconds is int
+        && request.resource.data.finalScore >= 0
+        && request.resource.data.hintsUsed >= 0
+        && request.resource.data.mistakes >= 0
+        && request.resource.data.timeInSeconds >= 0
         && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }

@@ -1,5 +1,5 @@
 import { RotateCcw } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button/Button'
 import { useAuth } from '../contexts/useAuth'
@@ -12,7 +12,6 @@ import ValidateButton from '../features/sudoku/components/ValidateButton'
 import { useSudoku } from '../features/sudoku/hooks/useSudoku'
 import { calculateGameScore } from '../features/sudoku/services/sudokuScoreService'
 import { getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
-import { formatTime } from '../features/sudoku/utils/formatTime'
 import { saveGameResult } from '../services/scores'
 
 function GamePage() {
@@ -30,7 +29,7 @@ function GamePage() {
     validateBoard,
   } = useSudoku()
   const [isSaving, setIsSaving] = useState(false)
-  const score = calculateGameScore(elapsedTime, mistakes, hintsUsed)
+  const finalScore = calculateGameScore(elapsedTime, mistakes, hintsUsed)
 
   async function handleValidateGame() {
     const validation = validateBoard()
@@ -40,12 +39,11 @@ function GamePage() {
     }
 
     const result = {
-      difficulty: getDifficultyLabel(difficulty),
-      errors: mistakes,
-      hints: hintsUsed,
-      score,
-      time: formatTime(elapsedTime),
-      timeSeconds: elapsedTime,
+      difficulty,
+      finalScore,
+      hintsUsed,
+      mistakes,
+      timeInSeconds: elapsedTime,
     }
     setIsSaving(true)
     let wasSaved: boolean
@@ -63,11 +61,40 @@ function GamePage() {
     })
   }
 
+  useEffect(() => {
+    function handleWindowKeyDown(event: KeyboardEvent) {
+      const target = event.target
+      const isTypingField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+
+      if (isTypingField) {
+        return
+      }
+
+      const isSudokuKey =
+        (event.key >= '1' && event.key <= '6') ||
+        event.key === 'Backspace' ||
+        event.key === 'Delete' ||
+        event.key === '0'
+
+      if (!isSudokuKey) {
+        return
+      }
+
+      event.preventDefault()
+      handleKeyboardInput(event.key)
+    }
+
+    window.addEventListener('keydown', handleWindowKeyDown)
+
+    return () => window.removeEventListener('keydown', handleWindowKeyDown)
+  }, [handleKeyboardInput])
+
   return (
-    <section
-      className="page game-page"
-      onKeyDown={(event) => handleKeyboardInput(event.key)}
-    >
+    <section className="page game-page">
       <div className="page__header game-page__header">
         <div>
           <p className="page__eyebrow">Partida</p>

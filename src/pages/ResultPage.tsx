@@ -1,17 +1,21 @@
 import { Link, useLocation } from 'react-router-dom'
+import type { Difficulty } from '../features/sudoku/types/sudoku.types'
+import { getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
+import { formatTime } from '../features/sudoku/utils/formatTime'
 
 interface ResultState {
-  difficulty?: string
-  errors?: number
-  hints?: number
-  score?: number
-  time?: string
+  difficulty?: Difficulty
+  finalScore?: number
+  hintsUsed?: number
+  mistakes?: number
+  timeInSeconds?: number
   wasSaved?: boolean
 }
 
 function ResultPage() {
   const { state } = useLocation()
   const result = (state ?? {}) as ResultState
+  const hasResult = typeof result.timeInSeconds === 'number'
 
   return (
     <section className="page module-page">
@@ -19,11 +23,11 @@ function ResultPage() {
         <p className="page__eyebrow">Resultado</p>
         <h1>Resumen de partida</h1>
         <p className="page__lead">
-          {result.time
-            ? `Partida ${result.difficulty ?? 'Mini Sudoku'} completada.`
+          {hasResult
+            ? `Partida ${result.difficulty ? getDifficultyLabel(result.difficulty) : 'Mini Sudoku'} completada.`
             : 'Completa una partida para ver el resumen final.'}
         </p>
-        {result.time ? (
+        {hasResult ? (
           <p className="result-save-status">
             {result.wasSaved
               ? 'Resultado guardado en el ranking.'
@@ -35,19 +39,19 @@ function ResultPage() {
       <div className="result-grid" aria-label="Resumen temporal">
         <article>
           <span>Tiempo</span>
-          <strong>{result.time ?? '00:00'}</strong>
+          <strong>{formatTime(result.timeInSeconds ?? 0)}</strong>
         </article>
         <article>
           <span>Errores</span>
-          <strong>{result.errors ?? 0}</strong>
+          <strong>{result.mistakes ?? 0}</strong>
         </article>
         <article>
           <span>Pistas</span>
-          <strong>{result.hints ?? 0}</strong>
+          <strong>{result.hintsUsed ?? 0}</strong>
         </article>
         <article>
           <span>Puntaje</span>
-          <strong>{result.score ?? 0}</strong>
+          <strong>{result.finalScore ?? 0}</strong>
         </article>
       </div>
 

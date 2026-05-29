@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
 import { isFirebaseConfigured } from '../lib/firebase'
 import { getLeaderboard } from '../services/scores'
 import type { LeaderboardEntry } from '../services/scores'
@@ -81,11 +82,11 @@ function LeaderboardPage() {
               entries.map((entry) => (
                 <tr key={entry.id}>
                   <td>{entry.playerName}</td>
-                  <td>{entry.difficulty}</td>
+                  <td>{getDifficultyLabel(entry.difficulty)}</td>
                   <td>{entry.time}</td>
-                  <td>{entry.errors}</td>
-                  <td>{entry.hints}</td>
-                  <td>{entry.score}</td>
+                  <td>{entry.mistakes}</td>
+                  <td>{entry.hintsUsed}</td>
+                  <td>{entry.finalScore}</td>
                 </tr>
               ))
             ) : (
