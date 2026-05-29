@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { getFirebaseAuthErrorMessage } from '../lib/firebaseAuthErrors'
 
 interface AuthLocationState {
   from?: {
@@ -31,8 +32,8 @@ function LoginPage() {
     try {
       await login(email, password)
       navigate(redirectTo, { replace: true })
-    } catch {
-      setErrorMessage('No se pudo iniciar sesión. Revisa el correo y la contraseña.')
+    } catch (error) {
+      setErrorMessage(getFirebaseAuthErrorMessage(error, 'login'))
     } finally {
       setIsSubmitting(false)
     }
@@ -49,7 +50,8 @@ function LoginPage() {
       <form className="auth-form" onSubmit={handleSubmit}>
         {!isConfigured ? (
           <p className="form-alert">
-            Firebase aún no está configurado. Completa las variables del archivo `.env`.
+            Firebase aún no está configurado. Reemplaza las variables pendientes del archivo `.env`
+            con los valores reales de Firebase Console.
           </p>
         ) : null}
         <label>

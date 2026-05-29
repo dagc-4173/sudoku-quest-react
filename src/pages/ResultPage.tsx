@@ -8,6 +8,7 @@ interface ResultState {
   finalScore?: number
   hintsUsed?: number
   mistakes?: number
+  saveErrorMessage?: string
   timeInSeconds?: number
   wasSaved?: boolean
 }
@@ -31,7 +32,8 @@ function ResultPage() {
           <p className="result-save-status">
             {result.wasSaved
               ? 'Resultado guardado en el ranking.'
-              : 'Resultado local. Inicia sesión antes de validar para guardarlo en el ranking.'}
+              : result.saveErrorMessage ||
+                'Resultado local. Inicia sesión antes de validar para guardarlo en el ranking.'}
           </p>
         ) : null}
       </div>

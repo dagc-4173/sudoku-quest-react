@@ -13,6 +13,7 @@ import { useSudoku } from '../features/sudoku/hooks/useSudoku'
 import { calculateGameScore } from '../features/sudoku/services/sudokuScoreService'
 import { getDifficultyLabel } from '../features/sudoku/utils/difficultyConfig'
 import { saveGameResult } from '../features/leaderboard/services/leaderboardService'
+import { getFirestoreSaveErrorMessage } from '../lib/firebaseFirestoreErrors'
 
 function GamePage() {
   const navigate = useNavigate()
@@ -46,9 +47,13 @@ function GamePage() {
       timeInSeconds: elapsedTime,
     }
     setIsSaving(true)
-    let wasSaved: boolean
+    let wasSaved = false
+    let saveErrorMessage = ''
+
     try {
       wasSaved = await saveGameResult(result, currentUser)
+    } catch (error) {
+      saveErrorMessage = getFirestoreSaveErrorMessage(error)
     } finally {
       setIsSaving(false)
     }
@@ -56,6 +61,7 @@ function GamePage() {
     navigate('/result', {
       state: {
         ...result,
+        saveErrorMessage,
         wasSaved,
       },
     })

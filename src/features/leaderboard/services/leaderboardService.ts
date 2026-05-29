@@ -19,6 +19,26 @@ export interface LeaderboardEntry extends GameResultPayload {
   uid: string
 }
 
+const saveGameResultTimeoutMs = 8000
+
+function withTimeout<T>(operation: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(Object.assign(new Error('Firestore save timeout'), { code: 'firestore/save-timeout' }))
+    }, timeoutMs)
+
+    operation
+      .then((result) => {
+        window.clearTimeout(timeoutId)
+        resolve(result)
+      })
+      .catch((error) => {
+        window.clearTimeout(timeoutId)
+        reject(error)
+      })
+  })
+}
+
 function mapLeaderboardEntry(id: string, data: Record<string, unknown>): LeaderboardEntry {
   const timeInSeconds = Number(data.timeInSeconds ?? 0)
 
@@ -35,6 +55,26 @@ function mapLeaderboardEntry(id: string, data: Record<string, unknown>): Leaderb
   }
 }
 
+function sortLeaderboardEntries(entries: LeaderboardEntry[]) {
+  return entries
+    .sort((currentEntry, nextEntry) => {
+      if (currentEntry.finalScore !== nextEntry.finalScore) {
+        return currentEntry.finalScore - nextEntry.finalScore
+      }
+
+      if (currentEntry.timeInSeconds !== nextEntry.timeInSeconds) {
+        return currentEntry.timeInSeconds - nextEntry.timeInSeconds
+      }
+
+      if (currentEntry.mistakes !== nextEntry.mistakes) {
+        return currentEntry.mistakes - nextEntry.mistakes
+      }
+
+      return currentEntry.hintsUsed - nextEntry.hintsUsed
+    })
+    .slice(0, 10)
+}
+
 export async function saveGameResult(result: GameResultPayload, user: User | null) {
   const db = await getFirebaseDb()
 
@@ -44,16 +84,19 @@ export async function saveGameResult(result: GameResultPayload, user: User | nul
 
   const { addDoc, collection, serverTimestamp } = await import('firebase/firestore')
 
-  await addDoc(collection(db, 'scores'), {
-    createdAt: serverTimestamp(),
-    difficulty: result.difficulty,
-    finalScore: result.finalScore,
-    hintsUsed: result.hintsUsed,
-    mistakes: result.mistakes,
-    playerName: user.displayName || user.email || 'Jugador TdeA',
-    timeInSeconds: result.timeInSeconds,
-    uid: user.uid,
-  })
+  await withTimeout(
+    addDoc(collection(db, 'scores'), {
+      createdAt: serverTimestamp(),
+      difficulty: result.difficulty,
+      finalScore: result.finalScore,
+      hintsUsed: result.hintsUsed,
+      mistakes: result.mistakes,
+      playerName: user.displayName || user.email || 'Jugador TdeA',
+      timeInSeconds: result.timeInSeconds,
+      uid: user.uid,
+    }),
+    saveGameResultTimeoutMs,
+  )
 
   return true
 }
@@ -70,21 +113,19 @@ export async function subscribeToLeaderboard(
     return () => {}
   }
 
-  const { collection, limit, onSnapshot, orderBy, query, where } = await import(
-    'firebase/firestore'
-  )
+  const { collection, onSnapshot, query, where } = await import('firebase/firestore')
   const scoresQuery = query(
     collection(db, 'scores'),
     where('difficulty', '==', difficulty),
-    orderBy('finalScore', 'asc'),
-    limit(10),
   )
 
   return onSnapshot(
     scoresQuery,
     (snapshot) => {
       onEntriesChange(
-        snapshot.docs.map((doc) => mapLeaderboardEntry(doc.id, doc.data())),
+        sortLeaderboardEntries(
+          snapshot.docs.map((doc) => mapLeaderboardEntry(doc.id, doc.data())),
+        ),
       )
     },
     (error) => onError(error),
@@ -98,18 +139,16 @@ export async function getLeaderboard(difficulty: Difficulty) {
     return []
   }
 
-  const { collection, getDocs, limit, orderBy, query, where } = await import(
-    'firebase/firestore'
-  )
+  const { collection, getDocs, query, where } = await import('firebase/firestore')
   const scoresQuery = query(
     collection(db, 'scores'),
     where('difficulty', '==', difficulty),
-    orderBy('finalScore', 'asc'),
-    limit(10),
   )
   const snapshot = await getDocs(scoresQuery)
 
-  return snapshot.docs.map((doc) => mapLeaderboardEntry(doc.id, doc.data()))
+  return sortLeaderboardEntries(
+    snapshot.docs.map((doc) => mapLeaderboardEntry(doc.id, doc.data())),
+  )
 }
 
 export type LeaderboardUnsubscribe = Unsubscribe

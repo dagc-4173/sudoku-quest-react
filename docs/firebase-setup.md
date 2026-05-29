@@ -60,21 +60,16 @@ Coleccion: `scores`
 }
 ```
 
-## 5. Indice para ranking
+## 5. Consulta del ranking
 
-El ranking realtime consulta por dificultad y ordena por puntaje:
+El ranking realtime consulta por dificultad:
 
 ```ts
 where('difficulty', '==', difficulty)
-orderBy('finalScore', 'asc')
 ```
 
-Firestore puede pedir un indice compuesto. Si aparece el error en consola,
-abre el enlace que Firebase entrega y crea el indice con:
-
-- Collection ID: `scores`
-- Field 1: `difficulty` Ascending
-- Field 2: `finalScore` Ascending
+La app ordena los resultados por menor puntaje en el cliente para evitar
+depender de un indice compuesto durante la entrega academica.
 
 ## 6. Prueba manual
 

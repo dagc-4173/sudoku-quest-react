@@ -23,7 +23,7 @@ Entrega objetivo: 20 de mayo
 
 - Rutas principales: `/`, `/game`, `/result`, `/login`, `/register`, `/leaderboard`.
 - Arquitectura por dominio con `features/sudoku` y `features/leaderboard`.
-- `SudokuContext` para estado global del juego.
+- `SudokuContext` con `useReducer` para estado global del juego.
 - AuthContext para sesion de usuario con Firebase Authentication.
 - Rutas privadas para `/game`, `/result` y `/leaderboard` cuando Firebase esta configurado.
 - Mini Sudoku 6x6 con bloques de 2 filas por 3 columnas.
@@ -127,6 +127,8 @@ VITE_FIREBASE_APP_ID=
 ```
 
 La guia completa esta en [docs/firebase-setup.md](docs/firebase-setup.md).
+La checklist de segunda entrega esta en
+[docs/second-delivery-checklist.md](docs/second-delivery-checklist.md).
 
 ## Firestore
 

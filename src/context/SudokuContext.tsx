@@ -2,12 +2,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
+  useReducer,
 } from 'react'
 import type { ReactNode } from 'react'
 import type {
   Difficulty,
   SelectedCell,
+  SudokuBoard,
+  SudokuValidationResult,
 } from '../features/sudoku/types/sudoku.types'
 import {
   createSudokuBoard,
@@ -25,8 +27,32 @@ interface SudokuProviderProps {
   children: ReactNode
 }
 
+interface SudokuState {
+  board: SudokuBoard
+  difficulty: Difficulty
+  elapsedTime: number
+  gameStarted: boolean
+  hintsUsed: number
+  isCompleted: boolean
+  mistakes: number
+  selectedCell: SelectedCell | null
+  solution: SudokuBoard
+  statusMessage: string
+  validationAttempted: boolean
+}
+
+type SudokuAction =
+  | { type: 'apply_hint'; payload: { targetIndex: number; value: number } }
+  | { type: 'apply_validation'; payload: SudokuValidationResult }
+  | { type: 'finish_game' }
+  | { type: 'select_cell'; payload: SelectedCell }
+  | { type: 'set_cell_value'; payload: number | null }
+  | { type: 'set_status'; payload: string }
+  | { type: 'start_new_game'; payload: Difficulty }
+  | { type: 'tick' }
+
 const initialDifficulty: Difficulty = 'easy'
-const initialPuzzle = generatePuzzle(initialDifficulty)
+const initialStatusMessage = 'Completa el tablero para validar la partida.'
 
 function createBoardFromPuzzle(puzzle: number[]) {
   return createSudokuBoard(puzzle, getFixedCells(puzzle))
@@ -39,69 +65,169 @@ function createSolutionBoard(solution: number[]) {
   )
 }
 
-export function SudokuProvider({ children }: SudokuProviderProps) {
-  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty)
-  const [board, setBoard] = useState(() => createBoardFromPuzzle(initialPuzzle.puzzle))
-  const [solution, setSolution] = useState(() => createSolutionBoard(initialPuzzle.solution))
-  const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null)
-  const [elapsedTime, setElapsedTime] = useState(0)
-  const [mistakes, setMistakes] = useState(0)
-  const [hintsUsed, setHintsUsed] = useState(0)
-  const [isCompleted, setIsCompleted] = useState(false)
-  const [gameStarted, setGameStarted] = useState(true)
-  const [validationAttempted, setValidationAttempted] = useState(false)
-  const [statusMessage, setStatusMessage] = useState(
-    'Completa el tablero para validar la partida.',
+function createInitialState(difficulty: Difficulty): SudokuState {
+  const puzzle = generatePuzzle(difficulty)
+
+  return {
+    board: createBoardFromPuzzle(puzzle.puzzle),
+    difficulty,
+    elapsedTime: 0,
+    gameStarted: true,
+    hintsUsed: 0,
+    isCompleted: false,
+    mistakes: 0,
+    selectedCell: null,
+    solution: createSolutionBoard(puzzle.solution),
+    statusMessage: initialStatusMessage,
+    validationAttempted: false,
+  }
+}
+
+function markBoardErrors(board: SudokuBoard, validation: SudokuValidationResult) {
+  return board.map((row) =>
+    row.map((cell) => ({
+      ...cell,
+      error: validation.wrongCells[getCellIndex(cell.row, cell.col)],
+    })),
   )
+}
+
+function sudokuReducer(state: SudokuState, action: SudokuAction): SudokuState {
+  switch (action.type) {
+    case 'apply_hint': {
+      return {
+        ...state,
+        board: state.board.map((row) =>
+          row.map((cell) =>
+            getCellIndex(cell.row, cell.col) === action.payload.targetIndex
+              ? { ...cell, error: false, value: action.payload.value }
+              : cell,
+          ),
+        ),
+        hintsUsed: state.hintsUsed + 1,
+        selectedCell: {
+          col: action.payload.targetIndex % 6,
+          row: Math.floor(action.payload.targetIndex / 6),
+        },
+        statusMessage: 'Pista aplicada. Revisa el tablero y continúa.',
+        validationAttempted: false,
+      }
+    }
+
+    case 'apply_validation': {
+      const nextBoard = markBoardErrors(state.board, action.payload)
+
+      if (!action.payload.isComplete) {
+        return {
+          ...state,
+          board: nextBoard,
+          statusMessage: 'Aún faltan casillas por completar.',
+          validationAttempted: true,
+        }
+      }
+
+      if (!action.payload.isSolved) {
+        return {
+          ...state,
+          board: nextBoard,
+          mistakes: state.mistakes + 1,
+          statusMessage: 'Hay casillas por corregir antes de cerrar la partida.',
+          validationAttempted: true,
+        }
+      }
+
+      return {
+        ...state,
+        board: nextBoard,
+        gameStarted: false,
+        isCompleted: true,
+        statusMessage: 'Partida completada correctamente.',
+        validationAttempted: true,
+      }
+    }
+
+    case 'finish_game':
+      return {
+        ...state,
+        gameStarted: false,
+        isCompleted: true,
+        statusMessage: 'Partida completada correctamente.',
+      }
+
+    case 'select_cell':
+      return {
+        ...state,
+        selectedCell: action.payload,
+      }
+
+    case 'set_cell_value': {
+      if (!state.selectedCell || state.isCompleted) {
+        return state
+      }
+
+      const currentCell = state.board[state.selectedCell.row]?.[state.selectedCell.col]
+
+      if (!currentCell || currentCell.fixed) {
+        return state
+      }
+
+      return {
+        ...state,
+        board: state.board.map((row) =>
+          row.map((cell) =>
+            cell.row === state.selectedCell?.row && cell.col === state.selectedCell.col
+              ? { ...cell, error: false, value: action.payload }
+              : cell,
+          ),
+        ),
+        validationAttempted: false,
+      }
+    }
+
+    case 'set_status':
+      return {
+        ...state,
+        statusMessage: action.payload,
+      }
+
+    case 'start_new_game':
+      return createInitialState(action.payload)
+
+    case 'tick':
+      if (!state.gameStarted || state.isCompleted) {
+        return state
+      }
+
+      return {
+        ...state,
+        elapsedTime: state.elapsedTime + 1,
+      }
+
+    default:
+      return state
+  }
+}
+
+export function SudokuProvider({ children }: SudokuProviderProps) {
+  const [state, dispatch] = useReducer(sudokuReducer, initialDifficulty, createInitialState)
 
   const startNewGame = useCallback((nextDifficulty: Difficulty) => {
-    const nextPuzzle = generatePuzzle(nextDifficulty)
-
-    setDifficulty(nextDifficulty)
-    setBoard(createBoardFromPuzzle(nextPuzzle.puzzle))
-    setSolution(createSolutionBoard(nextPuzzle.solution))
-    setSelectedCell(null)
-    setElapsedTime(0)
-    setMistakes(0)
-    setHintsUsed(0)
-    setIsCompleted(false)
-    setGameStarted(true)
-    setValidationAttempted(false)
-    setStatusMessage('Completa el tablero para validar la partida.')
+    dispatch({ payload: nextDifficulty, type: 'start_new_game' })
   }, [])
 
   const resetGame = useCallback(() => {
-    startNewGame(difficulty)
-  }, [difficulty, startNewGame])
+    startNewGame(state.difficulty)
+  }, [startNewGame, state.difficulty])
 
   const selectCell = useCallback((row: number, col: number) => {
-    setSelectedCell({ col, row })
+    dispatch({ payload: { col, row }, type: 'select_cell' })
   }, [])
 
   const setCellValue = useCallback(
     (value: number | null) => {
-      if (!selectedCell || isCompleted) {
-        return
-      }
-
-      setBoard((currentBoard) => {
-        const currentCell = currentBoard[selectedCell.row]?.[selectedCell.col]
-
-        if (!currentCell || currentCell.fixed) {
-          return currentBoard
-        }
-
-        return currentBoard.map((row) =>
-          row.map((cell) =>
-            cell.row === selectedCell.row && cell.col === selectedCell.col
-              ? { ...cell, error: false, value }
-              : cell,
-          ),
-        )
-      })
-      setValidationAttempted(false)
+      dispatch({ payload: value, type: 'set_cell_value' })
     },
-    [isCompleted, selectedCell],
+    [],
   )
 
   const handleKeyboardInput = useCallback(
@@ -119,127 +245,88 @@ export function SudokuProvider({ children }: SudokuProviderProps) {
   )
 
   const finishGame = useCallback(() => {
-    setIsCompleted(true)
-    setGameStarted(false)
-    setStatusMessage('Partida completada correctamente.')
+    dispatch({ type: 'finish_game' })
   }, [])
 
   const validateBoard = useCallback(() => {
-    const flatBoard = flattenBoardValues(board)
-    const flatSolution = flattenBoardValues(solution)
+    const flatBoard = flattenBoardValues(state.board)
+    const flatSolution = flattenBoardValues(state.solution)
     const validation = validateBoardAgainstSolution(flatBoard, flatSolution)
 
-    setValidationAttempted(true)
-    setBoard((currentBoard) =>
-      currentBoard.map((row) =>
-        row.map((cell) => ({
-          ...cell,
-          error: validation.wrongCells[getCellIndex(cell.row, cell.col)],
-        })),
-      ),
-    )
-
-    if (!validation.isComplete) {
-      setStatusMessage('Aún faltan casillas por completar.')
-      return validation
-    }
-
-    if (!validation.isSolved) {
-      setMistakes((currentMistakes) => currentMistakes + 1)
-      setStatusMessage('Hay casillas por corregir antes de cerrar la partida.')
-      return validation
-    }
-
-    finishGame()
+    dispatch({ payload: validation, type: 'apply_validation' })
     return validation
-  }, [board, finishGame, solution])
+  }, [state.board, state.solution])
 
   const useHint = useCallback(() => {
-    const flatBoard = flattenBoardValues(board)
-    const flatSolution = flattenBoardValues(solution)
-    const fixedCells = board.flatMap((row) => row.map((cell) => cell.fixed))
-    const selectedIndex = selectedCell
-      ? getCellIndex(selectedCell.row, selectedCell.col)
+    const flatBoard = flattenBoardValues(state.board)
+    const flatSolution = flattenBoardValues(state.solution)
+    const fixedCells = state.board.flatMap((row) => row.map((cell) => cell.fixed))
+    const selectedIndex = state.selectedCell
+      ? getCellIndex(state.selectedCell.row, state.selectedCell.col)
       : null
     const targetIndex = findHintTarget(flatBoard, fixedCells, flatSolution, selectedIndex)
 
     if (targetIndex === -1) {
-      setStatusMessage('No quedan casillas vacías o incorrectas para revelar.')
+      dispatch({
+        payload: 'No quedan casillas vacías o incorrectas para revelar.',
+        type: 'set_status',
+      })
       return
     }
 
-    setBoard((currentBoard) =>
-      currentBoard.map((row) =>
-        row.map((cell) =>
-          getCellIndex(cell.row, cell.col) === targetIndex
-            ? { ...cell, error: false, value: flatSolution[targetIndex] }
-            : cell,
-        ),
-      ),
-    )
-    setSelectedCell({
-      col: targetIndex % 6,
-      row: Math.floor(targetIndex / 6),
+    dispatch({
+      payload: {
+        targetIndex,
+        value: flatSolution[targetIndex],
+      },
+      type: 'apply_hint',
     })
-    setHintsUsed((currentHints) => currentHints + 1)
-    setValidationAttempted(false)
-    setStatusMessage('Pista aplicada. Revisa el tablero y continúa.')
-  }, [board, selectedCell, solution])
+  }, [state.board, state.selectedCell, state.solution])
 
   useEffect(() => {
-    if (!gameStarted || isCompleted) {
+    if (!state.gameStarted || state.isCompleted) {
       return undefined
     }
 
     const timerId = window.setInterval(() => {
-      setElapsedTime((currentSeconds) => currentSeconds + 1)
+      dispatch({ type: 'tick' })
     }, 1000)
 
     return () => window.clearInterval(timerId)
-  }, [gameStarted, isCompleted])
+  }, [state.gameStarted, state.isCompleted])
 
   const value = useMemo<SudokuContextValue>(
     () => ({
-      board,
-      difficulty,
-      elapsedTime,
+      board: state.board,
+      difficulty: state.difficulty,
+      elapsedTime: state.elapsedTime,
       finishGame,
-      gameStarted,
+      gameStarted: state.gameStarted,
       handleKeyboardInput,
-      hintsUsed,
-      isCompleted,
-      mistakes,
+      hintsUsed: state.hintsUsed,
+      isCompleted: state.isCompleted,
+      mistakes: state.mistakes,
       resetGame,
       selectCell,
-      selectedCell,
+      selectedCell: state.selectedCell,
       setCellValue,
-      solution,
+      solution: state.solution,
       startNewGame,
-      statusMessage,
+      statusMessage: state.statusMessage,
       useHint,
       validateBoard,
-      validationAttempted,
+      validationAttempted: state.validationAttempted,
     }),
     [
-      board,
-      difficulty,
-      elapsedTime,
       finishGame,
-      gameStarted,
       handleKeyboardInput,
-      hintsUsed,
-      isCompleted,
-      mistakes,
       resetGame,
       selectCell,
-      selectedCell,
       setCellValue,
-      solution,
       startNewGame,
-      statusMessage,
+      state,
       useHint,
       validateBoard,
-      validationAttempted,
     ],
   )
 

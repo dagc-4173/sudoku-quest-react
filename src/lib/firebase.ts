@@ -11,7 +11,17 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean)
+const placeholderPattern = /(^tu_|^your_|placeholder|_real$|xxx)/i
+
+function hasUsableFirebaseValue(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 && !placeholderPattern.test(value)
+}
+
+export const missingFirebaseConfigKeys = Object.entries(firebaseConfig)
+  .filter(([, value]) => !hasUsableFirebaseValue(value))
+  .map(([key]) => key)
+
+export const isFirebaseConfigured = missingFirebaseConfigKeys.length === 0
 
 let appPromise: Promise<FirebaseApp | null> | null = null
 let authPromise: Promise<Auth | null> | null = null

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { getFirebaseAuthErrorMessage } from '../lib/firebaseAuthErrors'
 
 function RegisterPage() {
   const navigate = useNavigate()
@@ -24,8 +25,8 @@ function RegisterPage() {
     try {
       await register(name.trim(), email, password)
       navigate('/game', { replace: true })
-    } catch {
-      setErrorMessage('No se pudo crear la cuenta. Usa otro correo o una contraseña más fuerte.')
+    } catch (error) {
+      setErrorMessage(getFirebaseAuthErrorMessage(error, 'register'))
     } finally {
       setIsSubmitting(false)
     }
@@ -42,7 +43,8 @@ function RegisterPage() {
       <form className="auth-form" onSubmit={handleSubmit}>
         {!isConfigured ? (
           <p className="form-alert">
-            Firebase aún no está configurado. Completa las variables del archivo `.env`.
+            Firebase aún no está configurado. Reemplaza las variables pendientes del archivo `.env`
+            con los valores reales de Firebase Console.
           </p>
         ) : null}
         <label>
